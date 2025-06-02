@@ -2,8 +2,13 @@ import { RemovalPolicy } from 'aws-cdk-lib';
 import {
   AccountRecovery,
   CfnUserPoolGroup,
+  ManagedLoginVersion,
+  OAuthScope,
+  OidcAttributeRequestMethod,
+  ProviderAttribute,
   UserPool,
   UserPoolClient,
+  UserPoolIdentityProviderOidc,
   UserPoolOperation,
 } from 'aws-cdk-lib/aws-cognito';
 import { Key } from 'aws-cdk-lib/aws-kms';
@@ -20,6 +25,7 @@ export class CognitoIdpConstruct extends Construct {
   readonly props: CognitoIDPConstructProps;
   readonly userPool: UserPool;
   readonly userPoolClient: UserPoolClient;
+  readonly userPoolIdentityProviderOidc: UserPoolIdentityProviderOidc;
   readonly userPoolGroup: CfnUserPoolGroup;
 
   constructor(scope: Construct, id: string, props: CognitoIDPConstructProps) {
@@ -51,14 +57,38 @@ export class CognitoIdpConstruct extends Construct {
       removalPolicy: removalPolicy,
     });
 
+    this.userPool.addDomain('domain', {
+      cognitoDomain: {
+        domainPrefix: `${this.props.constructNamespace}`,
+      },
+      managedLoginVersion: ManagedLoginVersion.CLASSIC_HOSTED_UI,
+    });
+
+    if (true) {
+      this.userPoolIdentityProviderOidc = new UserPoolIdentityProviderOidc(this, 'federated-oidc', {
+        name: 'easy-genomics-federated-oidc', // Config | UI setting per Org
+        clientId: '3gnhf2s89dvs50drau5rlooe8e', // Config | UI setting per Org
+        clientSecret: '12rvgnijhckehstva1g7hnhapbn3mbdje61rpuottobcf9tdvfi2', // Config | UI setting per Org
+        issuerUrl: 'https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_i9LvH2hm1', // Config | UI setting per Org
+        userPool: this.userPool,
+        attributeMapping: {
+          email: ProviderAttribute.other('email'),
+          givenName: ProviderAttribute.other('given_name'),
+          familyName: ProviderAttribute.other('family_name'),
+        },
+        attributeRequestMethod: OidcAttributeRequestMethod.POST,
+      });
+    }
+
     this.userPoolClient = this.userPool.addClient('client', {
       userPoolClientName: `${props.constructNamespace}-user-pool-client`,
+      generateSecret: true,
       preventUserExistenceErrors: true,
       authFlows: {
         userSrp: true,
-        // TODO: `userPassword` is enabled for testing purposes only; remove this in future after
-        //       enabling alternative signin for testing
-        userPassword: true,
+      },
+      oAuth: {
+        scopes: [OAuthScope.EMAIL, OAuthScope.OPENID, OAuthScope.PROFILE],
       },
     });
 
