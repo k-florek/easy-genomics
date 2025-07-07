@@ -13,7 +13,7 @@ import { APIGatewayProxyResult, APIGatewayProxyWithCognitoAuthorizerEvent, Handl
 import { LaboratoryService } from '@BE/services/easy-genomics/laboratory-service';
 import { S3Service } from '@BE/services/s3-service';
 
-const SAMPLE_SHEET_CSV_HEADER: string[] = ['sample, fastq_1, fastq_2'];
+const SAMPLE_SHEET_CSV_HEADER: string[] = ['sample,fastq_1,fastq_2'];
 
 const laboratoryService = new LaboratoryService();
 const s3Service = new S3Service();
