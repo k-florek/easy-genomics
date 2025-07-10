@@ -15,14 +15,14 @@ import { SQSEvent } from 'aws-lambda/trigger/sqs';
 import { LaboratoryRunService } from '@BE/services/easy-genomics/laboratory-run-service';
 import { LaboratoryService } from '@BE/services/easy-genomics/laboratory-service';
 import { OmicsService } from '@BE/services/omics-service';
-import { SnsService } from '@BE/services/sns-service';
+//import { SnsService } from '@BE/services/sns-service';
 import { SsmService } from '@BE/services/ssm-service';
 import { getNextFlowApiQueryParameters, httpRequest, REST_API_METHOD } from '@BE/utils/rest-api-utils';
 
 const laboratoryService = new LaboratoryService();
 const laboratoryRunService = new LaboratoryRunService();
 const ssmService = new SsmService();
-const snsService = new SnsService();
+//const snsService = new SnsService();
 const omicsService = new OmicsService();
 
 export const handler: Handler = async (event: SQSEvent): Promise<APIGatewayProxyResult> => {
@@ -52,35 +52,36 @@ export const handler: Handler = async (event: SQSEvent): Promise<APIGatewayProxy
 
 async function processStatusCheckEvent(operation: SnsProcessingOperation, laboratoryRun: LaboratoryRun) {
   if (operation === 'UPDATE') {
-    try {
-      console.log('Processing LaboratoryRun Status Update: ', laboratoryRun);
-      const existingRun: LaboratoryRun = await laboratoryRunService.queryByRunId(laboratoryRun.RunId);
+    //try {
+    console.log('Processing LaboratoryRun Status Update: ', laboratoryRun);
+    const existingRun: LaboratoryRun = await laboratoryRunService.queryByRunId(laboratoryRun.RunId);
 
-      if (!existingRun.ExternalRunId) {
-        console.log('Missing ExternalRunID from laboratory run: skipping');
-        return false;
-      }
+    if (!existingRun.ExternalRunId) {
+      console.log('Missing ExternalRunID from laboratory run: skipping');
+      return false;
+    }
 
-      let currentStatus = existingRun.Status;
+    let currentStatus = existingRun.Status;
 
-      if (existingRun.Platform === 'AWS HealthOmics') {
-        currentStatus = await getAWSHealthOmicsStatus(existingRun);
-      } else if (existingRun.Platform === 'Seqera Cloud') {
-        currentStatus = await getSeqeraCloudStatus(existingRun);
-      }
+    if (existingRun.Platform === 'AWS HealthOmics') {
+      currentStatus = await getAWSHealthOmicsStatus(existingRun);
+    } else if (existingRun.Platform === 'Seqera Cloud') {
+      currentStatus = await getSeqeraCloudStatus(existingRun);
+    }
 
-      // Has status changed?
-      if (existingRun.Status.toUpperCase() != currentStatus.toUpperCase()) {
-        console.log('status change', existingRun.Status, currentStatus);
+    // Has status changed?
+    if (existingRun.Status.toUpperCase() != currentStatus.toUpperCase()) {
+      console.log('status change', existingRun.Status, currentStatus);
 
-        laboratoryRun = await laboratoryRunService.update({
-          ...existingRun,
-          Status: currentStatus.toUpperCase(),
-          ModifiedAt: new Date().toISOString(),
-          ModifiedBy: 'Status Check',
-        });
-      }
+      laboratoryRun = await laboratoryRunService.update({
+        ...existingRun,
+        Status: currentStatus.toUpperCase(),
+        ModifiedAt: new Date().toISOString(),
+        ModifiedBy: 'Status Check',
+      });
+    }
 
+    /* Disabling periodic status check in-favor of front end triggers
       // Do we need to queue up another check?
       // NOTE: we don't have unified Easy Genomics statuses yet, so the list of status here
       //       is a mix of both Seqera and Omics
@@ -104,6 +105,7 @@ async function processStatusCheckEvent(operation: SnsProcessingOperation, labora
       console.error(err);
 
       //TODO: should have something to prevent endless loops
+
       console.log('Queueing another status check due to error checking status');
       const record: SnsProcessingEvent = {
         Operation: 'UPDATE',
@@ -116,7 +118,9 @@ async function processStatusCheckEvent(operation: SnsProcessingOperation, labora
         MessageGroupId: `update-laboratory-run-${laboratoryRun.RunId}`,
         MessageDeduplicationId: laboratoryRun.RunId, //uuidv4(),
       });
+
     }
+  */
   } else {
     console.error(`Unsupported SNS Processing Event Operation: ${operation}`);
   }
