@@ -12,7 +12,9 @@
     name?: string;
     size?: number;
     lastModified?: string;
-    children?: MapType;
+    // children in the UI are arrays of FileTreeNode (nestify returns arrays).
+    // Keep MapType only for the intermediate builder inside transformS3Data.
+    children?: FileTreeNode[] | MapType;
   }
 
   interface MapType {
@@ -56,9 +58,12 @@
         return;
       }
 
-      let currentChildren = rootDirChildren;
+      // rootDirChildren can be a MapType or an array; treat it as any[] for navigation
+      let currentChildren = rootDirChildren as any;
       for (const step of props.startPath) {
-        const resultsChild = currentChildren.find((node) => node.type === 'directory' && node.name === step);
+        const resultsChild = (currentChildren as any[]).find(
+          (node: any) => node.type === 'directory' && node.name === step,
+        );
         if (!resultsChild) break;
 
         openDirectory(resultsChild);
@@ -104,7 +109,7 @@
 
   const filteredItems = computed(() => {
     const query = searchQuery.value.toLowerCase();
-    return currentItems.value.filter((item: MapType) => item?.name.toLowerCase().includes(query));
+    return currentItems.value.filter((item: any) => (item?.name || '').toLowerCase().includes(query));
   });
 
   const tableColumns = [
@@ -171,16 +176,20 @@
     return `${value.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
   }
 
-  const onRowClicked = useDebounceFn((item: MapType) => {
-    if (item.type === 'directory' && item.children?.length) {
-      openDirectory(item);
+  const onRowClicked = useDebounceFn((item: any) => {
+    // be defensive: children may be an array or an object during intermediate transforms
+    if (item.type === 'directory' && Array.isArray(item.children) && item.children.length) {
+      openDirectory(item as FileTreeNode);
     }
   }, 300);
 
-  const openDirectory = (dir: MapType) => {
-    if (!currentPath.value.some((item) => item.name === dir.name)) {
-      currentPath.value.push(dir);
-    }
+  const openDirectory = (dir: FileTreeNode) => {
+    // Only avoid pushing the exact same directory object as the current last element.
+    // Previously we blocked based on name anywhere in the breadcrumb which prevented
+    // navigating into directories that share the same name but live under different paths.
+    const last = currentPath.value[currentPath.value.length - 1];
+    if (last === dir) return;
+    currentPath.value.push(dir as any);
   };
 
   const navigateTo = (index: number) => {
@@ -200,7 +209,8 @@
 
   function nodeUniqueString(node: FileTreeNode): string {
     // this isn't an ideal unique string but it's pretty unlikely to match any other files so it's probably good enough
-    return `${node.type}${node.name}${node.size}${node.lastModified}${node.children?.length}`;
+    const childrenLen = Array.isArray(node.children) ? node.children.length : 0;
+    return `${node.type}${node.name}${node.size}${node.lastModified}${childrenLen}`;
   }
 
   function isHtmlFile(node: FileTreeNode): boolean {
@@ -269,7 +279,7 @@
   <div>
     <!-- Search input -->
     <EGSearchInput
-      @input-event="(event) => (searchQuery = event)"
+      @input-event="(event: string) => (searchQuery = event)"
       placeholder="Search files/folders"
       class="mb-6 w-[408px]"
       :disabled="isLoading"
