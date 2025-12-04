@@ -33,6 +33,7 @@
   const userStore = useUserStore();
   const seqeraPipelinesStore = useSeqeraPipelinesStore();
   const omicsWorkflowsStore = useOmicsWorkflowsStore();
+  const runsTableRefreshKey = ref(0);
 
   const { stringSortCompare } = useSort();
 
@@ -138,6 +139,9 @@
 
     // without this following line, watchEffect doesn't pick up runsTableSort as a reactive dependency...
     runsTableSort.value;
+
+    // laboratory run polling refresh key
+    runsTableRefreshKey.value;
 
     const filters: any = {};
     if (runsTableFilterMyRunsOnly.value) filters.UserId = userStore.currentUserDetails.id!;
@@ -375,16 +379,23 @@
   }
 
   async function pollFetchLaboratoryRuns() {
-    await fetchLaboratoryRuns();
+    runsTableRefreshKey.value++;
+    await requestLabRunStatusCheck();
     intervalId = window.setTimeout(pollFetchLaboratoryRuns, 2 * 60 * 1000);
   }
 
-  async function fetchLaboratoryRuns(): Promise<void> {
-    uiStore.setRequestPending('loadLabRuns');
+  async function requestLabRunStatusCheck() {
+    const TERMINAL_STATUSES = ['FAILED', 'SUCCEEDED', 'CANCELLED', 'COMPLETED', 'DELETED'];
     try {
-      await runStore.loadLabRunsForLab(props.labId);
-    } finally {
-      uiStore.setRequestComplete('loadLabRuns');
+      const nonTerminalRunIds = runsTableItems.value
+        .filter((run) => !TERMINAL_STATUSES.includes(run.Status))
+        .map((run) => run.RunId);
+
+      if (nonTerminalRunIds.length > 0) {
+        await $api.labs.requestLabRunStatusCheck(props.labId, nonTerminalRunIds);
+      }
+    } catch (error) {
+      console.error('Failed to request lab run status check', error);
     }
   }
 

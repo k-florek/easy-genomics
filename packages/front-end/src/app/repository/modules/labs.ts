@@ -235,6 +235,23 @@ class LabsModule extends HttpFactory {
     validateApiResponse(LaboratoryRunSchema, res);
     return res;
   }
+
+  /**
+   *  Request status check on all runs not in a terminal state
+   *  @param labId
+   *  @param runIds
+   */
+  async requestLabRunStatusCheck(labId: string, runIds: string[]) {
+    const res = await this.call<any>(
+      'POST',
+      `/laboratory/run/request-laboratory-run-status-check?laboratoryId=${labId}`,
+      { runIds },
+    );
+    if (!res) {
+      throw new Error('Failed to request lab run status check');
+    }
+    return res;
+  }
 }
 
 export default LabsModule;
