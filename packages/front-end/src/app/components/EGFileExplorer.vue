@@ -38,7 +38,7 @@
 
   const uiStore = useUiStore();
 
-  const currentPath = ref([{ name: 'All Files', children: [] }]);
+  const currentPath = ref<FileTreeNode[]>([{ name: 'All Files', children: [] as FileTreeNode[] }]);
   const searchQuery = ref('');
   const s3Bucket = props.s3Bucket;
   const s3Prefix = props.s3Prefix;
@@ -58,11 +58,20 @@
         return;
       }
 
-      // rootDirChildren can be a MapType or an array; treat it as any[] for navigation
-      let currentChildren = rootDirChildren as any;
+      // Helper function to convert children to array if it's a MapType
+      function childrenToArray(children: FileTreeNode[] | MapType | undefined): FileTreeNode[] {
+        if (!children) return [];
+        if (Array.isArray(children)) return children;
+        // If it's a MapType object, convert to array
+        return Object.values(children);
+      }
+
+      // rootDirChildren can be a MapType or an array; normalize to array for navigation
+      let currentChildren: FileTreeNode[] | MapType | undefined = rootDirChildren;
       for (const step of props.startPath) {
-        const resultsChild = (currentChildren as any[]).find(
-          (node: any) => node.type === 'directory' && node.name === step,
+        const childrenArray = childrenToArray(currentChildren);
+        const resultsChild = childrenArray.find(
+          (node: FileTreeNode) => node.type === 'directory' && node.name === step,
         );
         if (!resultsChild) break;
 
@@ -77,8 +86,14 @@
   const updatedS3Contents = computed(() => {
     if (props.s3Contents) {
       const transformedData = transformS3Data(props.s3Contents, s3Prefix);
-      if (!currentPath.value[0].children.length) {
-        currentPath.value[0].children = transformedData as any;
+      const children = currentPath.value[0].children;
+      const hasNoChildren =
+        !children ||
+        (Array.isArray(children) && children.length === 0) ||
+        (!Array.isArray(children) && Object.keys(children).length === 0);
+
+      if (hasNoChildren) {
+        currentPath.value[0].children = transformedData;
       }
       return transformedData;
     }
@@ -95,8 +110,12 @@
   const currentItems = computed(() => {
     const currentDir = currentPath.value[currentPath.value.length - 1];
     const items = currentDir.children || [];
+
+    // Normalize items to array if it's a MapType object
+    const itemsArray: FileTreeNode[] = Array.isArray(items) ? items : Object.values(items);
+
     // add in download progress class
-    return items.map((node: FileTreeNode) => {
+    return itemsArray.map((node: FileTreeNode) => {
       const uniqueString = nodeUniqueString(node);
       const downloadProgress = downloads.value[uniqueString];
 
@@ -109,7 +128,7 @@
 
   const filteredItems = computed(() => {
     const query = searchQuery.value.toLowerCase();
-    return currentItems.value.filter((item: any) => (item?.name || '').toLowerCase().includes(query));
+    return currentItems.value.filter((item: FileTreeNode) => (item?.name || '').toLowerCase().includes(query));
   });
 
   const tableColumns = [
@@ -176,10 +195,10 @@
     return `${value.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
   }
 
-  const onRowClicked = useDebounceFn((item: any) => {
+  const onRowClicked = useDebounceFn((item: FileTreeNode) => {
     // be defensive: children may be an array or an object during intermediate transforms
     if (item.type === 'directory' && Array.isArray(item.children) && item.children.length) {
-      openDirectory(item as FileTreeNode);
+      openDirectory(item);
     }
   }, 300);
 
@@ -189,7 +208,7 @@
     // navigating into directories that share the same name but live under different paths.
     const last = currentPath.value[currentPath.value.length - 1];
     if (last === dir) return;
-    currentPath.value.push(dir as any);
+    currentPath.value.push(dir);
   };
 
   const navigateTo = (index: number) => {
