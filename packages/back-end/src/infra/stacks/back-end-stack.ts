@@ -141,6 +141,15 @@ export class BackEndStack extends Stack {
       ],
       true,
     );
+    new CfnOutput(this, 'VpcArn', {
+      value: this.vpcConstruct.vpc.vpcArn,
+      exportName: `${Stack.of(this).stackName}-VpcArn`,
+    });
+
+    new CfnOutput(this, 'VpcId', {
+      value: this.vpcConstruct.vpc.vpcId,
+      exportName: `${Stack.of(this).stackName}-VpcId`,
+    });
   }
 
   private initiateNestedStacks = () => {
