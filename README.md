@@ -43,10 +43,6 @@ sub-components for logical separation to make it easier to maintain and enhance:
 - `aws-healthomics`: contains AWS HealthOmics specific logic
 - `nf-tower`: contains NextFlow Tower specific logic
 
-NOTE: As of 2024, the Easy Genomics' AWS HealthOmics integration has been deferred to align with AWS HealthOmics'
-upcoming new features on their development roadmap, and will focus on integration with NextFlow Tower / Seqera Cloud
-platform in the meantime.
-
 ---
 
 ## Installation Quick Start Guide
