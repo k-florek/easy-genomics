@@ -1,4 +1,5 @@
 import { BackEndStackProps } from '@easy-genomics/shared-lib/src/infra/types/main-stack';
+import { CfnOutput } from 'aws-cdk-lib';
 import {
   CfnRoute,
   CfnVPCPeeringConnection,
@@ -23,7 +24,7 @@ export class VpcConstruct extends Construct {
   readonly vpc: IVpc;
   readonly dynamoDbEndpoint: GatewayVpcEndpoint;
   readonly s3Endpoint: GatewayVpcEndpoint;
-  readonly vpcPeeringConnection?: CfnVPCPeeringConnection;
+  readonly vpcPeeringConnection: CfnVPCPeeringConnection | undefined;
 
   constructor(scope: Construct, id: string, props: VpcConstructProps) {
     super(scope, id);
@@ -77,16 +78,21 @@ export class VpcConstruct extends Construct {
         },
       );
 
-      this.vpc.privateSubnets.forEach((p: ISubnet, index: number) => {
-        const route = new CfnRoute(this, `PrivateSubnetRoute${index}`, {
-          destinationCidrBlock: this?.props?.vpcPeering?.externalCidrBlock,
-          routeTableId: p.routeTable.routeTableId,
-          vpcPeeringConnectionId: this.vpcPeeringConnection!.ref,
+      if (this.vpcPeeringConnection) {
+        // Setup private subnet routing to Accepter's network
+        this.vpc.privateSubnets.forEach((p: ISubnet, index: number) => {
+          const route = new CfnRoute(this, `-${index}`, {
+            destinationCidrBlock: this.props.vpcPeering?.externalCidrBlock,
+            routeTableId: p.routeTable.routeTableId,
+            vpcPeeringConnectionId: this.vpcPeeringConnection?.ref,
+          });
+          route.addDependency(this.vpcPeeringConnection!);
         });
-        if (this.vpcPeeringConnection) {
-          route.addDependency(this.vpcPeeringConnection);
-        }
-      });
+      }
     }
+
+    const exportPrefix = this.props.envType === 'prod' ? '' : `${this.props.envType}-${this.props.envName}-`;
+    new CfnOutput(this, 'VpcId', { key: 'VpcId', value: this.vpc.vpcId, exportName: `${exportPrefix}VpcId` });
+    new CfnOutput(this, 'VpcArn', { key: 'VpcArn', value: this.vpc.vpcArn, exportName: `${exportPrefix}VpcArn` });
   }
 }
