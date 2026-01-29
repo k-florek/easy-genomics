@@ -1,5 +1,5 @@
 import { NestedStack } from 'aws-cdk-lib';
-import { Effect, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { Effect, PolicyDocument, PolicyStatement, Role, ServicePrincipal, Policy } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { IamConstruct, IamConstructProps } from '../constructs/iam-construct';
@@ -170,27 +170,33 @@ export class AwsHealthOmicsNestedStack extends NestedStack {
 
   private setupRoles() {
     // easy-genomics-healthomics-workflow-run-role
-    this.iam.addRole(
-      'easy-genomics-healthomics-workflow-run-role',
-      new Role(this, `${this.props.namePrefix}-easy-genomics-healthomics-workflow-run-role`, {
-        roleName: `${this.props.namePrefix}-easy-genomics-healthomics-workflow-run-role`,
-        assumedBy: new ServicePrincipal('omics.amazonaws.com', {
-          region: `${this.props.env.region!}`,
-          conditions: {
-            ['StringEquals']: {
-              'aws:SourceAccount': `${this.props.env.account!}`,
-            },
-            ['ArnLike']: {
-              'aws:SourceArn': `arn:aws:omics:${this.props.env.region}:${this.props.env.account!}:run/*`,
-            },
+    const role = new Role(this, `${this.props.namePrefix}-easy-genomics-healthomics-workflow-run-role`, {
+      roleName: `${this.props.namePrefix}-easy-genomics-healthomics-workflow-run-role`,
+      assumedBy: new ServicePrincipal('omics.amazonaws.com', {
+        region: `${this.props.env.region!}`,
+        conditions: {
+          StringEquals: {
+            'aws:SourceAccount': `${this.props.env.account!}`,
           },
-        }),
-        description: 'Service Role that the Omics Service can use access resources from other services.',
-        inlinePolicies: {
-          ['omics-service-role-policy-document']: this.iam.getPolicyDocument('omics-service-role-policy-document'),
+          ArnLike: {
+            'aws:SourceArn': `arn:aws:omics:${this.props.env.region}:${this.props.env.account!}:run/*`,
+          },
         },
       }),
-    );
+      description: 'Service Role that the Omics Service can use access resources from other services.',
+    });
+
+    // Create a Policy and attach it to the Role
+    new Policy(this, `${this.props.namePrefix}-omics-service-role-policy`, {
+      policyName: `${this.props.namePrefix}-omics-service-role-policy`,
+      statements: this.iam
+        .getPolicyDocument('omics-service-role-policy-document')
+        .toJSON()
+        .Statement.map((stmt: any) => PolicyStatement.fromJson(stmt)),
+      roles: [role],
+    });
+
+    this.iam.addRole('easy-genomics-healthomics-workflow-run-role', role);
   }
 
   private setupLambdaPolicyStatements() {
