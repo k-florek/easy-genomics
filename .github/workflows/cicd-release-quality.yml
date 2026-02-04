@@ -4,7 +4,7 @@ name: cicd-release-quality
 on:
   push:
     branches:
-      - main
+      - development
 jobs:
   build-deploy-back-end:
     name: Build & Deploy Back-End

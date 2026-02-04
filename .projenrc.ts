@@ -502,8 +502,18 @@ new PnpmWorkspace(root);
 new VscodeSettings(root);
 new Nx(root);
 new Husky(root);
-new GithubActionsCICDRelease(root, { environment: 'quality', pnpmVersion: pnpmVersion, e2e: true });
-new GithubActionsCICDRelease(root, { environment: 'quality-uat', pnpmVersion: pnpmVersion, e2e: true });
+new GithubActionsCICDRelease(root, {
+  environment: 'quality',
+  pnpmVersion: pnpmVersion,
+  onPushBranch: 'development',
+  e2e: true,
+});
+new GithubActionsCICDRelease(root, {
+  environment: 'quality-uat',
+  pnpmVersion: pnpmVersion,
+  onPushBranch: 'staging',
+  e2e: true,
+});
 new GithubActionsCICDRelease(root, {
   environment: 'sandbox',
   pnpmVersion: pnpmVersion,
