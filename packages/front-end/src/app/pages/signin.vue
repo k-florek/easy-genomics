@@ -2,6 +2,7 @@
   import { z } from 'zod';
   import { resetStores, useUiStore } from '@FE/stores';
   import { VALIDATION_MESSAGES } from '@FE/constants/validation';
+  import { Auth } from 'aws-amplify';
 
   definePageMeta({ layout: 'signin' });
 
@@ -28,11 +29,35 @@
   watchEffect(() => {
     isFormDisabled.value = !formSchema.safeParse(state.value).success;
   });
+
+  async function signInWithGoogle() {
+    await Auth.federatedSignIn({ provider: 'Google' });
+  }
 </script>
 
 <template>
   <UForm :schema="formSchema" :state="state" @submit="signIn(state.email, state.password)" class="w-full max-w-[408px]">
     <EGText tag="h2" class="mb-12">Sign in</EGText>
+    <EGButton
+      variant="secondary"
+      class="mb-8 gap-4"
+      label="Sign in with Google"
+      icon="logos:google-icon"
+      u-button-type="button"
+      :iconRight="false"
+      :disabled="useUiStore().isRequestPending('signInWithGoogle')"
+      :loading="useUiStore().isRequestPending('signInWithGoogle')"
+      :ui="{
+        base: 'w-full justify-start',
+        label: 'font-normal',
+      }"
+      @click="signInWithGoogle"
+    />
+    <div class="my-6 flex items-center">
+      <div class="flex-grow border-t border-gray-200" />
+      <span class="mx-4 text-sm uppercase text-gray-400">OR</span>
+      <div class="flex-grow border-t border-gray-200" />
+    </div>
     <EGFormGroup label="Email" name="email">
       <EGInput v-model="state.email" :autofocus="isAcceptingInvite" autocomplete="username" />
     </EGFormGroup>

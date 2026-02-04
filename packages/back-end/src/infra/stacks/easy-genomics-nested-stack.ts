@@ -252,6 +252,8 @@ export class EasyGenomicsNestedStack extends NestedStack {
       appDomainName: this.props.appDomainName,
       awsHostedZoneId: this.props.awsHostedZoneId,
       emailSender: `no.reply@${this.props.appDomainName}`,
+      envType: this.props.envType,
+      envName: this.props.envName,
     });
 
     // Nag Suppressions
